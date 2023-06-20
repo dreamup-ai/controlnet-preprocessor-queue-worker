@@ -1,0 +1,10 @@
+#! /usr/bin/env bash
+
+VERSION=$(cat package.json | jq -r '.version')
+echo "Building version $VERSION"
+
+docker buildx build \
+--platform linux/amd64,linux/arm64 \
+-t public.ecr.aws/i0t3i1w9/controlnet-preprocessor-queue-worker:$VERSION \
+--push \
+.

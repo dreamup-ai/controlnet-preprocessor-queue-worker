@@ -12,8 +12,11 @@ services:
       SQS_ENDPOINT: http://localstack-s3-sqs:4566
       PREPROCESSOR_SERVER_URL: https://smoky-tamarind-garden.salad.cloud
       SALAD_API_KEY: ${SALAD_API_KEY}
-      QUEUE_URL: http://localstack-s3-sqs:4566/000000000000/controlnet-preprocessor-jobs
-      JOB_TABLE: controlnet-preprocessor-jobs
+      QUEUE_URL: http://localstack-s3-sqs:4566/000000000000/controlnet-preprocessor-jobs.fifo
+      JOB_TABLE: test-table
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     volumes:
       # There's a bunch of keys in the fixtures folder that we need to use
       - type: bind
@@ -27,11 +30,11 @@ services:
       - "4566:4566" # LocalStack Gateway
       # - "4571:4571" # external services port range
     environment:
-      DEBUG:${DEBUG-}
-      DOCKER_HOST:unix:///var/run/docker.sock
-      SERVICES:s3,sqs
-      START_WEB:0
-      PROVIDER_OVERRIDE_S3:v2
+      DEBUG: ${DEBUG-}
+      DOCKER_HOST: unix:///var/run/docker.sock
+      SERVICES: s3,sqs
+      START_WEB: 0
+      PROVIDER_OVERRIDE_S3: v2
     volumes:
       - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"

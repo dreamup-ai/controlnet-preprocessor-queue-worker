@@ -1,50 +1,29 @@
-import { DynamoDBClient, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
+import { UpdateItemCommand } from "@aws-sdk/client-dynamodb";
+import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import {
-  GetObjectCommand,
-  PutObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
-import { ReceiveMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
+  DeleteMessageCommand,
+  ReceiveMessageCommand,
+} from "@aws-sdk/client-sqs";
 import assert from "node:assert";
+import {
+  dynamodb as dynamoClient,
+  s3 as s3Client,
+  sqs as sqsClient,
+} from "./clients";
 
-const {
-  AWS_REGION,
-  AWS_DEFAULT_REGION,
-  QUEUE_URL,
-  PREPROCESSOR_SERVER_URL,
-  SALAD_API_KEY,
-  JOB_TABLE,
-  DYNAMODB_ENDPOINT,
-  S3_ENDPOINT,
-  SQS_ENDPOINT,
-} = process.env;
+const { QUEUE_URL, PREPROCESSOR_SERVER_URL, SALAD_API_KEY, JOB_TABLE } =
+  process.env;
 
-assert(
-  AWS_REGION || AWS_DEFAULT_REGION,
-  "AWS_REGION or AWS_DEFAULT_REGION must be set"
-);
 assert(QUEUE_URL, "QUEUE_URL must be set");
 assert(PREPROCESSOR_SERVER_URL, "PREPROCESSOR_SERVER_URL must be set");
 assert(JOB_TABLE, "JOB_TABLE must be set");
 
 const baseUrl = new URL(PREPROCESSOR_SERVER_URL);
 
-const sqsClient = new SQSClient({
-  region: AWS_REGION || AWS_DEFAULT_REGION,
-  endpoint: SQS_ENDPOINT,
-});
-
-const s3Client = new S3Client({
-  region: AWS_REGION || AWS_DEFAULT_REGION,
-  endpoint: S3_ENDPOINT,
-});
-
-const dynamoClient = new DynamoDBClient({
-  region: AWS_REGION || AWS_DEFAULT_REGION,
-  endpoint: DYNAMODB_ENDPOINT,
-});
-
-let stayAlive = true;
+export let stayAlive = true;
+export const setStayAlive = (value: boolean) => {
+  stayAlive = value;
+};
 process.on("SIGINT", () => {
   stayAlive = false;
 });
@@ -72,7 +51,7 @@ const setJobStatus = async (
   const params = {
     TableName: JOB_TABLE,
     Key: {
-      jobId: { S: jobId },
+      job_id: { S: jobId },
     },
     UpdateExpression: `SET #status = :status, #timeField = :time`,
     ExpressionAttributeNames: {
@@ -144,6 +123,13 @@ async function main() {
             imageStream = Body;
           } catch (e: any) {
             console.error(job_id, e);
+            // Delete message from queue
+            await sqsClient.send(
+              new DeleteMessageCommand({
+                QueueUrl: QUEUE_URL,
+                ReceiptHandle,
+              })
+            );
             return setJobStatus(job_id, "failed");
           }
 
@@ -196,12 +182,23 @@ async function main() {
             await s3Client.send(putObjCmd);
           } catch (e: any) {
             console.error(job_id, e);
+            await sqsClient.send(
+              new DeleteMessageCommand({
+                QueueUrl: QUEUE_URL,
+                ReceiptHandle,
+              })
+            );
             return setJobStatus(job_id, "failed");
           }
 
           const timeCompleted = Date.now();
           const jobTime = (timeCompleted - timeStarted) / 1000;
-
+          await sqsClient.send(
+            new DeleteMessageCommand({
+              QueueUrl: QUEUE_URL,
+              ReceiptHandle,
+            })
+          );
           await setJobStatus(job_id, "completed", jobTime, gpuTime);
         })
       );
