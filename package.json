@@ -1,0 +1,26 @@
+{
+  "name": "controlnet-preprocessor-queue-worker",
+  "version": "0.0.1",
+  "description": "This is a queue-worker sidecar container for the controlnet preprocessor",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "test": "mocha --recursive dist/test",
+    "build": "tsc",
+    "start": "node dist/src/index.js"
+  },
+  "author": "Shawn Rushefsky",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.354.0",
+    "@aws-sdk/client-s3": "^3.354.0",
+    "@aws-sdk/client-sqs": "^3.354.0"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.5",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^20.3.1",
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0",
+    "typescript": "^5.1.3"
+  }
+}
