@@ -210,7 +210,7 @@ async function main() {
              * Save the image to S3
              */
             console.log(`Saving result to s3://${output_bucket}/${output_key}`);
-            const processedImg = await result.blob();
+            const processedImg = (await result.arrayBuffer()) as Buffer;
             const putObjCmd = new PutObjectCommand({
               Bucket: output_bucket,
               Key: output_key,
