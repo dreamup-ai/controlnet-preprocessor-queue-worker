@@ -1,7 +1,7 @@
 {
   "input_key": "content/21cda033-42e4-43bf-b713-531b2e3e99d6/46805cde-6abb-4b1c-91ce-993a3fe84d21.png",
   "input_bucket": "dreamup-user-content",
-  "output_key": "content/21cda033-42e4-43bf-b713-531b2e3e99d6/46805cde-6abb-4b1c-91ce-993a3fe84d21/canny.png",
+  "output_key": "content/21cda033-42e4-43bf-b713-531b2e3e99d6/46805cde-6abb-4b1c-91ce-993a3fe84d21/canny.webp",
   "output_bucket": "dreamup-user-content",
   "process_id": "canny",
   "job_id": "easytofind"

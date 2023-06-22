@@ -134,6 +134,12 @@ async function main() {
             return setJobStatus(job_id, "failed", ReceiptHandle);
           }
 
+          // Output key must end in .webp
+          if (!output_key.endsWith(".webp")) {
+            console.error("Invalid output key", output_key);
+            return setJobStatus(job_id, "failed", ReceiptHandle);
+          }
+
           console.log(`Processing job ${job_id}`);
           setJobStatus(job_id, "running");
 
@@ -204,10 +210,12 @@ async function main() {
              * Save the image to S3
              */
             console.log(`Saving result to s3://${output_bucket}/${output_key}`);
+            const processedImg = await result.blob();
             const putObjCmd = new PutObjectCommand({
               Bucket: output_bucket,
               Key: output_key,
-              Body: result.body,
+              Body: processedImg,
+              ContentType: "image/webp",
             });
 
             await s3Client.send(putObjCmd);
