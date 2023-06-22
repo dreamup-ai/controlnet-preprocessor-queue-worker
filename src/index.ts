@@ -31,9 +31,11 @@ process.on("SIGINT", () => {
 const setJobStatus = async (
   jobId: string,
   status: string,
+  receiptHandle: string | undefined = undefined,
   job_time: number | undefined = undefined,
   gpu_time: number | undefined = undefined
 ) => {
+  console.log(`Setting job ${jobId} status to ${status}`);
   // We are going to add a timestamp to the job status
   // so we can see how long it took to process the job
   const statusToTimeField: {
@@ -76,7 +78,20 @@ const setJobStatus = async (
     params.ExpressionAttributeValues[":gpu_time"] = { N: gpu_time.toString() };
   }
 
-  await dynamoClient.send(new UpdateItemCommand(params));
+  const promises = [dynamoClient.send(new UpdateItemCommand(params))];
+
+  if (receiptHandle) {
+    promises.push(
+      sqsClient.send(
+        new DeleteMessageCommand({
+          QueueUrl: QUEUE_URL,
+          ReceiptHandle: receiptHandle,
+        })
+      )
+    );
+  }
+
+  await Promise.all(promises);
 };
 
 async function main() {
@@ -88,7 +103,7 @@ async function main() {
         WaitTimeSeconds: 20,
       })
     );
-    console.log("Received messages", Messages?.length);
+    console.log("Received messages", Messages?.length || 0);
     if (Messages && Messages.length > 0) {
       const settled = await Promise.allSettled(
         Messages.map(async ({ Body, ReceiptHandle }) => {
@@ -104,6 +119,23 @@ async function main() {
             process_id,
             job_id,
           } = JSON.parse(Body);
+
+          // All of the above fields are required
+          if (
+            !input_key ||
+            !input_bucket ||
+            !output_key ||
+            !output_bucket ||
+            !process_id ||
+            !job_id
+          ) {
+            console.error("Invalid message", Body);
+
+            return setJobStatus(job_id, "failed", ReceiptHandle);
+          }
+
+          console.log(`Processing job ${job_id}`);
+          setJobStatus(job_id, "running");
 
           // The preprocessor url is the base url + /image/<process_id>
           const url = new URL(`/image/${process_id}`, baseUrl);
@@ -124,18 +156,13 @@ async function main() {
           } catch (e: any) {
             console.error(job_id, e);
             // Delete message from queue
-            await sqsClient.send(
-              new DeleteMessageCommand({
-                QueueUrl: QUEUE_URL,
-                ReceiptHandle,
-              })
-            );
-            return setJobStatus(job_id, "failed");
+
+            return setJobStatus(job_id, "failed", ReceiptHandle);
           }
 
           if (!imageStream) {
             console.error(job_id, "No image stream");
-            return setJobStatus(job_id, "failed");
+            return setJobStatus(job_id, "failed", ReceiptHandle);
           }
 
           const chunks: Uint8Array[] = [];
@@ -149,21 +176,24 @@ async function main() {
            */
           const reqInfo = {
             method: "POST",
-            headers: {} as any,
+            headers: {
+              "Content-Type": "application/octet-stream",
+            } as any,
             body: imageBuffer,
           };
           if (SALAD_API_KEY) {
             reqInfo.headers["Salad-Api-Key"] = SALAD_API_KEY;
           }
+          console.log("Sending request to", url.toString());
           const result = await fetch(url.toString(), reqInfo);
           if (!result.ok) {
             console.error(job_id, result);
-            return setJobStatus(job_id, "failed");
+            return setJobStatus(job_id, "failed", ReceiptHandle);
           }
 
           if (!result.body) {
             console.error(job_id, "No result body");
-            return setJobStatus(job_id, "failed");
+            return setJobStatus(job_id, "failed", ReceiptHandle);
           }
 
           let gpuTime: number | undefined = undefined;
@@ -173,6 +203,7 @@ async function main() {
             /**
              * Save the image to S3
              */
+            console.log(`Saving result to s3://${output_bucket}/${output_key}`);
             const putObjCmd = new PutObjectCommand({
               Bucket: output_bucket,
               Key: output_key,
@@ -182,24 +213,20 @@ async function main() {
             await s3Client.send(putObjCmd);
           } catch (e: any) {
             console.error(job_id, e);
-            await sqsClient.send(
-              new DeleteMessageCommand({
-                QueueUrl: QUEUE_URL,
-                ReceiptHandle,
-              })
-            );
-            return setJobStatus(job_id, "failed");
+
+            return setJobStatus(job_id, "failed", ReceiptHandle);
           }
 
           const timeCompleted = Date.now();
           const jobTime = (timeCompleted - timeStarted) / 1000;
-          await sqsClient.send(
-            new DeleteMessageCommand({
-              QueueUrl: QUEUE_URL,
-              ReceiptHandle,
-            })
+
+          await setJobStatus(
+            job_id,
+            "completed",
+            ReceiptHandle,
+            jobTime,
+            gpuTime
           );
-          await setJobStatus(job_id, "completed", jobTime, gpuTime);
         })
       );
 
