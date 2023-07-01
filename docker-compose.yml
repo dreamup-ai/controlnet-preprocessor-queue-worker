@@ -17,12 +17,6 @@ services:
       AWS_DEFAULT_REGION: us-east-1
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
-    volumes:
-      # There's a bunch of keys in the fixtures folder that we need to use
-      - type: bind
-        source: ./test/fixtures
-        target: /app/test/fixtures
-        read_only: true
   localstack:
     container_name: "localstack-s3-sqs"
     image: localstack/localstack:2.0.1

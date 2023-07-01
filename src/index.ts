@@ -135,7 +135,7 @@ async function main() {
           }
 
           // Output key must end in .webp
-          if (!output_key.endsWith(".webp")) {
+          if (!output_key.endsWith(".webp") || !output_key.endsWith(".png")) {
             console.error("Invalid output key", output_key);
             return setJobStatus(job_id, "failed", ReceiptHandle);
           }
@@ -215,7 +215,9 @@ async function main() {
               Bucket: output_bucket,
               Key: output_key,
               Body: processedImg,
-              ContentType: "image/webp",
+              ContentType: output_key.endsWith(".webp")
+                ? "image/webp"
+                : "image/png",
             });
 
             await s3Client.send(putObjCmd);
