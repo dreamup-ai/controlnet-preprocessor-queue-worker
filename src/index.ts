@@ -135,7 +135,7 @@ async function main() {
           }
 
           // Output key must end in .webp
-          if (!output_key.endsWith(".webp") || !output_key.endsWith(".png")) {
+          if (!output_key.endsWith(".webp") && !output_key.endsWith(".png")) {
             console.error("Invalid output key", output_key);
             return setJobStatus(job_id, "failed", ReceiptHandle);
           }
@@ -193,7 +193,7 @@ async function main() {
           console.log("Sending request to", url.toString());
           const result = await fetch(url.toString(), reqInfo);
           if (!result.ok) {
-            console.error(job_id, result);
+            console.error(job_id, await result.text());
             return setJobStatus(job_id, "failed", ReceiptHandle);
           }
 
