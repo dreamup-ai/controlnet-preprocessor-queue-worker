@@ -29,8 +29,8 @@ jobs:
       - name: Get version and image name from package.json
         id: package-info
         run: |
-          echo "::set-output name=VERSION::$(node -p "require('./package.json').version")"
-          echo "::set-output name=IMAGE_NAME::$(node -p "require('./package.json').name")"
+          echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=$(node -p "require('./package.json').name")" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
