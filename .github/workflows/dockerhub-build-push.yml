@@ -6,6 +6,7 @@ on:
       - main
     paths-ignore:
       - README.md
+      - CODEOWNERS
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
