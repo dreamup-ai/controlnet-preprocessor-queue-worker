@@ -1,0 +1,48 @@
+name: Build and Push to ECR
+
+on:
+  push:
+    branches:
+      - main
+env:
+  ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}}
+
+jobs:
+  build_and_push_to_ecr:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+      
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::045411470840:role/github-actions-push-to-ecr-and-ecs
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Get version and image name from package.json
+        id: package-info
+        run: |
+          echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=$(node -p "require('./package.json').name")" >> $GITHUB_OUTPUT
+
+      - name: Build and Push Docker Image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
+          VERSION: ${{ steps.package-info.outputs.VERSION }}
+          ECR_REPOSITORY: ${{ steps.package-info.outputs.IMAGE_NAME }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION
