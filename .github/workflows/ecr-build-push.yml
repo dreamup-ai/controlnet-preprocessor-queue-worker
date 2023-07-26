@@ -5,7 +5,7 @@ on:
     branches:
       - main
 env:
-  ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}}
+  ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
 
 jobs:
   build_and_push_to_ecr:
